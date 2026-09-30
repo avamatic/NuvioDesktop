@@ -145,7 +145,7 @@ internal data class TrackingScrobbleItemInputs(
 )
 
 internal fun PlayerScreenRuntime.snapshotTrackingScrobbleItemInputs(): TrackingScrobbleItemInputs {
-    currentVideoTrackingIdentity()?.let { identity ->
+    currentVideoPlaybackIdentity()?.let { identity ->
         return TrackingScrobbleItemInputs(
             contentType = identity.type,
             parentMetaId = identity.id,

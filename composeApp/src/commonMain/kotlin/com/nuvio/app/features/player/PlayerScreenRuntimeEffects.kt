@@ -483,7 +483,7 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
         parentMetaType,
         contentType,
         playerSettingsUiState.skipIntroEnabled,
-        currentVideoTrackingIdentity(),
+        currentVideoPlaybackIdentity(),
     ) {
         skipIntervals = emptyList()
         autoSkippedIntervals.clear()
@@ -498,7 +498,7 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
 
         if (!playerSettingsUiState.skipIntroEnabled) return@LaunchedEffect
 
-        currentVideoTrackingIdentity()?.let { identity ->
+        currentVideoPlaybackIdentity()?.let { identity ->
             skipIntervals = if (identity.isMovie) {
                 SkipIntroRepository.getMovieSkipIntervals(identity.id, null)
             } else {
@@ -789,9 +789,11 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
     val expectedProviderName = activeProviderName
     val expectedStreamTitle = activeStreamTitle
     val expectedBingeGroup = currentStreamBingeGroup
-    val type = contentType ?: parentMetaType
-    val season = activeSeasonNumber
-    val episode = activeEpisodeNumber
+    val searchTarget = activeStreamSearchTarget(currentVideoId)
+    val type = searchTarget.type
+    val searchVideoId = searchTarget.videoId
+    val season = searchTarget.season
+    val episode = searchTarget.episode
 
     errorMessage = null
     controlsVisible = !playerControlsLocked
@@ -800,7 +802,7 @@ internal fun PlayerScreenRuntime.tryRefreshCredentialedSourceAfterError(message:
         try {
             PlayerStreamsRepository.loadSources(
                 type = type,
-                videoId = currentVideoId,
+                videoId = searchVideoId,
                 season = season,
                 episode = episode,
                 forceRefresh = true,

@@ -32,9 +32,26 @@ internal class PlaybackAvailability(
     private val addons: List<ManagedAddon>,
     private val plugins: PluginsUiState,
 ) {
-    fun canStream(type: String, videoId: String): Boolean =
-        hasCompatiblePlaybackSource(addons, plugins, type, videoId) ||
+    fun canStream(
+        type: String,
+        videoId: String,
+        parentMetaId: String? = null,
+        parentMetaType: String? = null,
+    ): Boolean {
+        if (parentMetaId != null && needsPlaybackIdentityLookup(videoId)) {
+            val metaType = parentMetaType ?: type
+            val cachedMeta = MetaDetailsRepository.peek(type = metaType, id = parentMetaId)
+            // Meta not cached yet (e.g. cold start): defer to the streams screen, which resolves it.
+            if (cachedMeta == null) return true
+            val identity = peekPlaybackIdentity(metaType, parentMetaId, videoId)
+            if (identity != null) {
+                val target = identity.toStreamSearchTarget(type, videoId, null, null)
+                return hasCompatiblePlaybackSource(addons, plugins, target.type, target.videoId)
+            }
+        }
+        return hasCompatiblePlaybackSource(addons, plugins, type, videoId) ||
             MetaDetailsRepository.findEmbeddedStreams(videoId).isNotEmpty()
+    }
 
     fun canPlay(
         type: String,
@@ -42,7 +59,7 @@ internal class PlaybackAvailability(
         parentMetaId: String,
         seasonNumber: Int? = null,
         episodeNumber: Int? = null,
-    ): Boolean = canStream(type, videoId) || DownloadsRepository.findPlayableDownload(
+    ): Boolean = canStream(type, videoId, parentMetaId) || DownloadsRepository.findPlayableDownload(
         parentMetaId = parentMetaId,
         seasonNumber = seasonNumber,
         episodeNumber = episodeNumber,

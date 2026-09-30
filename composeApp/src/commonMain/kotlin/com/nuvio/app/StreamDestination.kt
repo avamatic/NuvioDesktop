@@ -33,6 +33,10 @@ import com.nuvio.app.features.player.sanitizePlaybackHeaders
 import com.nuvio.app.features.player.sanitizePlaybackResponseHeaders
 import com.nuvio.app.features.streams.StreamBehaviorHints
 import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.needsPlaybackIdentityLookup
+import com.nuvio.app.features.streams.peekPlaybackIdentity
+import com.nuvio.app.features.streams.resolvePlaybackIdentity
+import com.nuvio.app.features.streams.toStreamSearchTarget
 import com.nuvio.app.features.streams.StreamLaunchStore
 import com.nuvio.app.features.streams.StreamLinkCacheRepository
 import com.nuvio.app.features.streams.StreamsRepository
@@ -131,6 +135,33 @@ internal fun StreamDestination(
         effectiveVideoId = resolvedVideoId ?: launch.videoId
         hasResolvedVideoId = true
     }
+
+    // Addons with synthetic videos supply the real identity; streams are searched with that.
+    val identityMetaType = launch.parentMetaType ?: launch.type
+    var playbackIdentity by remember(effectiveVideoId, launch.parentMetaId, identityMetaType) {
+        mutableStateOf(
+            launch.parentMetaId?.let { peekPlaybackIdentity(identityMetaType, it, effectiveVideoId) },
+        )
+    }
+    var playbackIdentityResolved by remember(effectiveVideoId, launch.parentMetaId, identityMetaType) {
+        mutableStateOf(
+            launch.parentMetaId == null ||
+                playbackIdentity != null ||
+                !needsPlaybackIdentityLookup(effectiveVideoId),
+        )
+    }
+    LaunchedEffect(effectiveVideoId, hasResolvedVideoId, launch.parentMetaId, identityMetaType) {
+        if (!hasResolvedVideoId || playbackIdentityResolved) return@LaunchedEffect
+        val metaId = launch.parentMetaId ?: return@LaunchedEffect
+        playbackIdentity = resolvePlaybackIdentity(identityMetaType, metaId, effectiveVideoId)
+        playbackIdentityResolved = true
+    }
+    val streamSearch = playbackIdentity.toStreamSearchTarget(
+        type = launch.type,
+        videoId = effectiveVideoId,
+        season = launch.seasonNumber,
+        episode = launch.episodeNumber,
+    )
 
     val playerSettings by PlayerSettingsRepository.uiState.collectAsStateWithLifecycle()
 
@@ -351,10 +382,10 @@ internal fun StreamDestination(
 
     val streamsUiState by StreamsRepository.uiState.collectAsStateWithLifecycle()
     val expectedStreamsRequestToken = StreamsRepository.requestToken(
-        type = launch.type,
-        videoId = effectiveVideoId,
-        season = launch.seasonNumber,
-        episode = launch.episodeNumber,
+        type = streamSearch.type,
+        videoId = streamSearch.videoId,
+        season = streamSearch.season,
+        episode = streamSearch.episode,
         manualSelection = launch.manualSelection,
     )
     val showLoadingScreen = autoPlayNavigationStarted || resolvingDebridStream || streamsUiState.shouldShowAutoPlayLoading(
@@ -386,8 +417,8 @@ internal fun StreamDestination(
             when (
                 val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
                     stream = selectedStream,
-                    season = launch.seasonNumber,
-                    episode = launch.episodeNumber,
+                    season = streamSearch.season,
+                    episode = streamSearch.episode,
                 )
             ) {
                 is DirectDebridPlayableResult.Success -> resolved.stream
@@ -398,11 +429,11 @@ internal fun StreamDestination(
                     }
                     if (!hasNextCandidate && resolved == DirectDebridPlayableResult.Stale) {
                         StreamsRepository.reload(
-                            type = launch.type,
-                            videoId = effectiveVideoId,
+                            type = streamSearch.type,
+                            videoId = streamSearch.videoId,
                             parentMetaId = launch.parentMetaId,
-                            season = launch.seasonNumber,
-                            episode = launch.episodeNumber,
+                            season = streamSearch.season,
+                            episode = streamSearch.episode,
                             manualSelection = launch.manualSelection,
                         )
                     }
@@ -531,8 +562,8 @@ internal fun StreamDestination(
                 resolvingDebridStream = true
                 val resolved = DirectDebridPlaybackResolver.resolveToPlayableStream(
                     stream = stream,
-                    season = launch.seasonNumber,
-                    episode = launch.episodeNumber,
+                    season = streamSearch.season,
+                    episode = streamSearch.episode,
                 )
                 resolvingDebridStream = false
                 when (resolved) {
@@ -547,11 +578,11 @@ internal fun StreamDestination(
                         resolved.toastMessage()?.let { NuvioToastController.show(it) }
                         if (resolved == DirectDebridPlayableResult.Stale) {
                             StreamsRepository.reload(
-                                type = launch.type,
-                                videoId = effectiveVideoId,
+                                type = streamSearch.type,
+                                videoId = streamSearch.videoId,
                                 parentMetaId = launch.parentMetaId,
-                                season = launch.seasonNumber,
-                                episode = launch.episodeNumber,
+                                season = streamSearch.season,
+                                episode = streamSearch.episode,
                                 manualSelection = launch.manualSelection,
                             )
                         }
@@ -656,6 +687,8 @@ internal fun StreamDestination(
     Box(modifier = Modifier.fillMaxSize()) {
         StreamsScreen(
             showLoadingScreen = showLoadingScreen,
+            streamSearch = streamSearch,
+            streamSearchReady = playbackIdentityResolved,
             type = launch.type,
             videoId = effectiveVideoId,
             parentMetaId = launch.parentMetaId ?: effectiveVideoId,

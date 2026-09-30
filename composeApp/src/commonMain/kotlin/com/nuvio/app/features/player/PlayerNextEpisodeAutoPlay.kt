@@ -16,6 +16,7 @@ import com.nuvio.app.features.streams.StreamAutoPlayMode
 import com.nuvio.app.features.streams.StreamAutoPlaySelector
 import com.nuvio.app.features.streams.StreamAutoPlaySource
 import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.streamSearchTarget
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -84,7 +85,7 @@ internal fun CoroutineScope.launchPlayerNextEpisodeAutoPlay(
     onSourceNameChanged(null)
     onCountdownChanged(null)
 
-    val type = contentType ?: parentMetaType
+    val searchTarget = nextVideo.streamSearchTarget(contentType ?: parentMetaType)
     val shouldAutoSelectInManualMode =
         settings.streamAutoPlayMode == StreamAutoPlayMode.MANUAL &&
             (
@@ -131,10 +132,10 @@ internal fun CoroutineScope.launchPlayerNextEpisodeAutoPlay(
 
     return launch {
         PlayerStreamsRepository.loadEpisodeStreams(
-            type = type,
-            videoId = nextVideo.id,
-            season = nextVideo.season,
-            episode = nextVideo.episode,
+            type = searchTarget.type,
+            videoId = searchTarget.videoId,
+            season = searchTarget.season,
+            episode = searchTarget.episode,
         )
 
         if (effectiveMode == StreamAutoPlayMode.MANUAL) {
@@ -243,15 +244,15 @@ internal fun CoroutineScope.launchPlayerNextEpisodeAutoPlay(
         }
 
         val selected = selectedStream?.let { stream ->
-            when (val result = DirectDebridPlaybackResolver.resolveToPlayableStream(stream, nextVideo.season, nextVideo.episode)) {
+            when (val result = DirectDebridPlaybackResolver.resolveToPlayableStream(stream, searchTarget.season, searchTarget.episode)) {
                 is DirectDebridPlayableResult.Success -> result.stream
                 else -> {
                     result.toastMessage()?.let { NuvioToastController.show(it) }
                     PlayerStreamsRepository.loadEpisodeStreams(
-                        type = type,
-                        videoId = nextVideo.id,
-                        season = nextVideo.season,
-                        episode = nextVideo.episode,
+                        type = searchTarget.type,
+                        videoId = searchTarget.videoId,
+                        season = searchTarget.season,
+                        episode = searchTarget.episode,
                         forceRefresh = true,
                     )
                     null

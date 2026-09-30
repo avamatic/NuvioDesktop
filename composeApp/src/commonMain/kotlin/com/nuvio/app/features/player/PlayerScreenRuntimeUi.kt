@@ -33,6 +33,7 @@ import com.nuvio.app.features.player.skip.SkipIntroRepository
 import com.nuvio.app.features.streams.AddonStreamGroup
 import com.nuvio.app.features.streams.StreamBadgeSettingsRepository
 import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.streamSearchTarget
 import com.nuvio.app.features.streams.isSelectableForPlayback
 import com.nuvio.app.features.watchprogress.buildPlaybackVideoId
 import com.nuvio.app.features.watching.application.WatchingState
@@ -1113,12 +1114,12 @@ private fun PlayerScreenRuntime.prepareSourcesForPlayerControls(forceRefresh: Bo
     if (vid == null) {
         return
     }
-    val requestType = contentType ?: parentMetaType
+    val target = activeStreamSearchTarget(vid)
     PlayerStreamsRepository.loadSources(
-        type = requestType,
-        videoId = vid,
-        season = activeSeasonNumber,
-        episode = activeEpisodeNumber,
+        type = target.type,
+        videoId = target.videoId,
+        season = target.season,
+        episode = target.episode,
         forceRefresh = forceRefresh,
     )
 }
@@ -1149,11 +1150,12 @@ private fun PlayerScreenRuntime.requestEpisodeStreamsForPlayerControls(
     episode: MetaVideo,
     forceRefresh: Boolean = false,
 ) {
+    val target = episode.streamSearchTarget(contentType ?: parentMetaType)
     PlayerStreamsRepository.loadEpisodeStreams(
-        type = contentType ?: parentMetaType,
-        videoId = episode.id,
-        season = episode.season,
-        episode = episode.episode,
+        type = target.type,
+        videoId = target.videoId,
+        season = target.season,
+        episode = target.episode,
         forceRefresh = forceRefresh,
     )
     episodeStreamsPanelState = EpisodeStreamsPanelState(showStreams = true, selectedEpisode = episode)
@@ -1784,11 +1786,12 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
         onReloadSources = {
             val vid = activeVideoId
             if (vid != null) {
+                val target = activeStreamSearchTarget(vid)
                 PlayerStreamsRepository.loadSources(
-                    type = contentType ?: parentMetaType,
-                    videoId = vid,
-                    season = activeSeasonNumber,
-                    episode = activeEpisodeNumber,
+                    type = target.type,
+                    videoId = target.videoId,
+                    season = target.season,
+                    episode = target.episode,
                     forceRefresh = true,
                 )
             }
@@ -1818,11 +1821,12 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
             )
         },
         onEpisodeStreamsRequested = { episode ->
+            val target = episode.streamSearchTarget(contentType ?: parentMetaType)
             PlayerStreamsRepository.loadEpisodeStreams(
-                type = contentType ?: parentMetaType,
-                videoId = episode.id,
-                season = episode.season,
-                episode = episode.episode,
+                type = target.type,
+                videoId = target.videoId,
+                season = target.season,
+                episode = target.episode,
             )
             episodeStreamsPanelState = EpisodeStreamsPanelState(showStreams = true, selectedEpisode = episode)
         },
@@ -1835,11 +1839,12 @@ private fun PlayerScreenRuntime.RenderPlayerModals(displayedPositionMs: Long) {
         onReloadEpisodeStreams = {
             val episode = episodeStreamsPanelState.selectedEpisode
             if (episode != null) {
+                val target = episode.streamSearchTarget(contentType ?: parentMetaType)
                 PlayerStreamsRepository.loadEpisodeStreams(
-                    type = contentType ?: parentMetaType,
-                    videoId = episode.id,
-                    season = episode.season,
-                    episode = episode.episode,
+                    type = target.type,
+                    videoId = target.videoId,
+                    season = target.season,
+                    episode = target.episode,
                     forceRefresh = true,
                 )
             }

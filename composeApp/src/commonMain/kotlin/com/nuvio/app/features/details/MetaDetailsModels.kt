@@ -100,16 +100,16 @@ data class MetaVideo(
     val runtime: Int? = null,
     val rating: Double? = null,
     val streams: List<StreamItem> = emptyList(),
-    val trackingIdentity: VideoTrackingIdentity? = null,
+    val playbackIdentity: VideoPlaybackIdentity? = null,
 )
 
 /**
  * Optional real-world identity for a video whose addon uses synthetic IDs and
  * numbering (for example a chronological list spanning several shows). When
- * present it is used for tracking scrobbles and skip-segment lookups instead of
- * the parent meta and the synthetic season/episode.
+ * present it is used for stream searches, tracking scrobbles and skip-segment
+ * lookups instead of the parent meta and the synthetic season/episode.
  */
-data class VideoTrackingIdentity(
+data class VideoPlaybackIdentity(
     val type: String,
     val id: String,
     val name: String? = null,

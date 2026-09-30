@@ -46,7 +46,7 @@ jobs:
             touch local.properties
           fi
 
-      - name: Test tracking identity parsing
+      - name: Test playback identity parsing
         run: ./gradlew :composeApp:desktopTest --tests 'com.nuvio.app.features.details.*' --no-configuration-cache --stacktrace
 
       - name: Build unsigned DMG

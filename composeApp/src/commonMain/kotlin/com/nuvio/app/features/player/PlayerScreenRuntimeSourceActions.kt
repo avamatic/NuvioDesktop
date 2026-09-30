@@ -13,6 +13,7 @@ import com.nuvio.app.features.p2p.P2pSettingsRepository
 import com.nuvio.app.features.p2p.P2pStreamingEngine
 import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.StreamLinkCacheRepository
+import com.nuvio.app.features.streams.streamSearchTarget
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import com.nuvio.app.features.watchprogress.buildPlaybackVideoId
 import kotlinx.coroutines.launch
@@ -232,20 +233,22 @@ internal fun PlayerScreenRuntime.switchToP2pEpisodeStream(
 }
 
 internal fun PlayerScreenRuntime.switchToSource(stream: StreamItem) {
+    val searchTarget = activeVideoId?.let { activeStreamSearchTarget(it) }
     if (
         resolveDebridForPlayer(
             stream = stream,
-            season = activeSeasonNumber,
-            episode = activeEpisodeNumber,
+            season = searchTarget?.season ?: activeSeasonNumber,
+            episode = searchTarget?.episode ?: activeEpisodeNumber,
             onResolved = { switchToSource(it) },
             onStale = {
                 val vid = activeVideoId
                 if (vid != null) {
+                    val target = activeStreamSearchTarget(vid)
                     PlayerStreamsRepository.loadSources(
-                        type = contentType ?: parentMetaType,
-                        videoId = vid,
-                        season = activeSeasonNumber,
-                        episode = activeEpisodeNumber,
+                        type = target.type,
+                        videoId = target.videoId,
+                        season = target.season,
+                        episode = target.episode,
                         forceRefresh = true,
                     )
                 }
@@ -290,18 +293,19 @@ internal fun PlayerScreenRuntime.switchToSource(stream: StreamItem) {
 }
 
 internal fun PlayerScreenRuntime.switchToEpisodeStream(stream: StreamItem, episode: MetaVideo) {
+    val searchTarget = episode.streamSearchTarget(contentType ?: parentMetaType)
     if (
         resolveDebridForPlayer(
             stream = stream,
-            season = episode.season,
-            episode = episode.episode,
+            season = searchTarget.season,
+            episode = searchTarget.episode,
             onResolved = { resolvedStream -> switchToEpisodeStream(resolvedStream, episode) },
             onStale = {
                 PlayerStreamsRepository.loadEpisodeStreams(
-                    type = contentType ?: parentMetaType,
-                    videoId = episode.id,
-                    season = episode.season,
-                    episode = episode.episode,
+                    type = searchTarget.type,
+                    videoId = searchTarget.videoId,
+                    season = searchTarget.season,
+                    episode = searchTarget.episode,
                     forceRefresh = true,
                 )
             },
@@ -437,11 +441,12 @@ internal fun PlayerScreenRuntime.playNextEpisode(automatic: Boolean = false) {
 
 internal fun PlayerScreenRuntime.openSourcesPanel() {
     val vid = activeVideoId ?: return
+    val target = activeStreamSearchTarget(vid)
     PlayerStreamsRepository.loadSources(
-        type = contentType ?: parentMetaType,
-        videoId = vid,
-        season = activeSeasonNumber,
-        episode = activeEpisodeNumber,
+        type = target.type,
+        videoId = target.videoId,
+        season = target.season,
+        episode = target.episode,
     )
     showSourcesPanel = true
     showEpisodesPanel = false

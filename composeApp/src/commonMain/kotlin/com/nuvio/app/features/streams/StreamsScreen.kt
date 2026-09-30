@@ -133,6 +133,8 @@ fun StreamsScreen(
     manualSelection: Boolean = false,
     startFromBeginning: Boolean = false,
     showLoadingScreen: Boolean = false,
+    streamSearch: StreamSearchTarget? = null,
+    streamSearchReady: Boolean = true,
     onStreamSelected: (stream: StreamItem, resumePositionMs: Long?, resumeProgressFraction: Float?) -> Unit = { _, _, _ -> },
     onStreamActionOpen: (
         stream: StreamItem,
@@ -202,13 +204,21 @@ fun StreamsScreen(
     val effectiveResumePositionMs = resumeState.positionMs
     val effectiveResumeProgressFraction = resumeState.progressFraction
 
-    LaunchedEffect(type, videoId, seasonNumber, episodeNumber, manualSelection) {
+    val search = streamSearch ?: StreamSearchTarget(
+        type = type,
+        videoId = videoId,
+        season = seasonNumber,
+        episode = episodeNumber,
+    )
+
+    LaunchedEffect(search, streamSearchReady, manualSelection) {
+        if (!streamSearchReady) return@LaunchedEffect
         StreamsRepository.load(
-            type = type,
-            videoId = videoId,
+            type = search.type,
+            videoId = search.videoId,
             parentMetaId = parentMetaId,
-            season = seasonNumber,
-            episode = episodeNumber,
+            season = search.season,
+            episode = search.episode,
             manualSelection = manualSelection,
         )
     }
@@ -239,11 +249,11 @@ fun StreamsScreen(
         !episodeThumbnail.isNullOrBlank()
     val reloadStreams: () -> Unit = {
         StreamsRepository.reload(
-            type = type,
-            videoId = videoId,
+            type = search.type,
+            videoId = search.videoId,
             parentMetaId = parentMetaId,
-            season = seasonNumber,
-            episode = episodeNumber,
+            season = search.season,
+            episode = search.episode,
             manualSelection = manualSelection,
         )
     }
