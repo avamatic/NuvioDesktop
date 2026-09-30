@@ -1336,7 +1336,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm, TargetFormat.AppImage)
-            packageName = "Nuvio"
+            packageName = "NuvioChronio"
             packageVersion = desktopReleasePackageVersion
             vendor = "Nuvio Media"
             if (isMacHost) {
@@ -1350,24 +1350,10 @@ compose.desktop {
                 "jdk.unsupported",
             )
             macOS {
-                bundleID = "com.nuvio.media.desktop"
+                // Chronio fork: installs beside the official app and leaves nuvio:// and
+                // stremio:// links to it.
+                bundleID = "com.nuvio.media.desktop.chronio"
                 iconFile.set(project.file("src/desktopMain/resources/icons/nuvio-app-icon-transparent.icns"))
-                infoPlist {
-                    extraKeysRawXml = """
-                        <key>CFBundleURLTypes</key>
-                        <array>
-                            <dict>
-                                <key>CFBundleURLName</key>
-                                <string>com.nuvio.media.desktop</string>
-                                <key>CFBundleURLSchemes</key>
-                                <array>
-                                    <string>nuvio</string>
-                                    <string>stremio</string>
-                                </array>
-                            </dict>
-                        </array>
-                    """.trimIndent()
-                }
                 if (macosSigningIdentity != null) {
                     signing {
                         sign.set(true)

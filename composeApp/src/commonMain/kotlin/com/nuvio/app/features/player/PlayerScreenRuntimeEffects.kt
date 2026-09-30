@@ -483,6 +483,7 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
         parentMetaType,
         contentType,
         playerSettingsUiState.skipIntroEnabled,
+        currentVideoTrackingIdentity(),
     ) {
         skipIntervals = emptyList()
         autoSkippedIntervals.clear()
@@ -496,6 +497,19 @@ private fun PlayerScreenRuntime.BindPlayerMetadataAndSkipEffects() {
         cancelNextEpisodeAutoPlay()
 
         if (!playerSettingsUiState.skipIntroEnabled) return@LaunchedEffect
+
+        currentVideoTrackingIdentity()?.let { identity ->
+            skipIntervals = if (identity.isMovie) {
+                SkipIntroRepository.getMovieSkipIntervals(identity.id, null)
+            } else {
+                SkipIntroRepository.getSkipIntervals(
+                    imdbId = identity.id,
+                    season = identity.season ?: return@LaunchedEffect,
+                    episode = identity.episode ?: return@LaunchedEffect,
+                )
+            }
+            return@LaunchedEffect
+        }
 
         if ((contentType ?: parentMetaType).equals("movie", ignoreCase = true)) {
             skipIntervals = SkipIntroRepository.getMovieSkipIntervals(parentMetaId, activeVideoId)

@@ -1,0 +1,68 @@
+name: Chronio Fork Build
+
+on:
+  push:
+    branches: [chronio]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chronio-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS arm64 DMG
+    runs-on: macos-15
+    env:
+      LOCAL_PROPERTIES_BASE64: ${{ secrets.CHRONIO_LOCAL_PROPERTIES_BASE64 }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Fetch macOS runtime
+        # Forks do not inherit upstream LFS objects.
+        run: |
+          git config lfs.url https://github.com/NuvioMedia/NuvioDesktop.git/info/lfs
+          git lfs pull --include="composeApp/src/desktopMain/native/macos/runtime/arm64/**" --exclude=""
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Prepare local properties
+        run: |
+          if [ -n "$LOCAL_PROPERTIES_BASE64" ]; then
+            printf '%s' "$LOCAL_PROPERTIES_BASE64" | base64 --decode > local.properties
+          else
+            touch local.properties
+          fi
+
+      - name: Test tracking identity parsing
+        run: ./gradlew :composeApp:desktopTest --tests 'com.nuvio.app.features.details.*' --no-configuration-cache --stacktrace
+
+      - name: Build unsigned DMG
+        env:
+          NUVIO_MACOS_NOTARY_KEYCHAIN_PROFILE: ''
+          NUVIO_MACOS_SIGNING_IDENTITY: ''
+        run: |
+          ./gradlew :composeApp:packageReleaseDmg \
+            -Pnuvio.macos.arch=arm64 \
+            -Pcompose.desktop.packaging.checkJdkVendor=false \
+            --no-configuration-cache --no-daemon --stacktrace
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuvio-desktop-chronio-${{ github.sha }}
+          path: composeApp/build/compose/**/*.dmg
+          if-no-files-found: error
+          retention-days: 14

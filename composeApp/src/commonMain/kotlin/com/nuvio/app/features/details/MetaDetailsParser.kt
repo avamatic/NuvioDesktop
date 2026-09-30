@@ -252,8 +252,24 @@ internal object MetaDetailsParser {
                 runtime = parseRuntimeMinutes((video["runtime"] as? JsonPrimitive)?.contentOrNull),
                 rating = video.string("rating")?.trim()?.toDoubleOrNull()?.takeIf { it > 0.0 },
                 streams = video.embeddedStreams(),
+                trackingIdentity = (video["trackingIdentity"] as? JsonObject)?.toVideoTrackingIdentity(),
             )
         }
+
+    private fun JsonObject.toVideoTrackingIdentity(): VideoTrackingIdentity? {
+        val type = string("type")?.trim()?.lowercase()?.takeIf { it == "movie" || it == "series" } ?: return null
+        val id = string("id")?.trim()?.takeIf { it.matches(Regex("tt\\d+")) } ?: return null
+        val season = int("season")
+        val episode = int("episode")
+        if (type == "series" && (season == null || episode == null || season < 0 || episode < 0)) return null
+        return VideoTrackingIdentity(
+            type = type,
+            id = id,
+            name = string("name")?.trim()?.takeIf(String::isNotBlank),
+            season = season.takeIf { type == "series" },
+            episode = episode.takeIf { type == "series" },
+        )
+    }
 
     private fun JsonObject.seasonPosters(videos: List<MetaVideo>): Map<Int, String> {
         val appExtras = this["app_extras"] as? JsonObject ?: return emptyMap()

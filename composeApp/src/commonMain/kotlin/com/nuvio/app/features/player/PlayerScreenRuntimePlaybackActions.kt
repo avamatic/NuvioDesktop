@@ -10,7 +10,10 @@ import com.nuvio.app.features.watchprogress.WatchProgressClock
 import com.nuvio.app.features.watchprogress.WatchProgressPlaybackSession
 import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import com.nuvio.app.features.watchprogress.buildPlaybackVideoId
+import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -141,15 +144,28 @@ internal data class TrackingScrobbleItemInputs(
     val episodeTitle: String?,
 )
 
-internal fun PlayerScreenRuntime.snapshotTrackingScrobbleItemInputs() = TrackingScrobbleItemInputs(
-    contentType = contentType ?: parentMetaType,
-    parentMetaId = parentMetaId,
-    videoId = activeVideoId,
-    title = title,
-    seasonNumber = activeSeasonNumber,
-    episodeNumber = activeEpisodeNumber,
-    episodeTitle = activeEpisodeTitle,
-)
+internal fun PlayerScreenRuntime.snapshotTrackingScrobbleItemInputs(): TrackingScrobbleItemInputs {
+    currentVideoTrackingIdentity()?.let { identity ->
+        return TrackingScrobbleItemInputs(
+            contentType = identity.type,
+            parentMetaId = identity.id,
+            videoId = identity.videoId,
+            title = identity.name ?: title,
+            seasonNumber = identity.season,
+            episodeNumber = identity.episode,
+            episodeTitle = null,
+        )
+    }
+    return TrackingScrobbleItemInputs(
+        contentType = contentType ?: parentMetaType,
+        parentMetaId = parentMetaId,
+        videoId = activeVideoId,
+        title = title,
+        seasonNumber = activeSeasonNumber,
+        episodeNumber = activeEpisodeNumber,
+        episodeTitle = activeEpisodeTitle,
+    )
+}
 
 private fun TrackingScrobbleItemInputs.buildMedia(): TrackingMediaReference =
     buildTrackingMediaReference(
@@ -172,6 +188,10 @@ internal fun PlayerScreenRuntime.emitTrackingScrobbleStart() {
     scrobbleStartRequestGeneration = requestGeneration
 
     scope.launch {
+        if (playerMetaVideos.isEmpty()) {
+            // Addon-supplied tracking identities arrive with the meta; give it a moment.
+            withTimeoutOrNull(5_000L) { snapshotFlow { playerMetaVideos }.first { it.isNotEmpty() } }
+        }
         val media = currentTrackingMedia()
         if (!media.hasResolvableIdentity) {
             hasRequestedScrobbleStartForCurrentItem = false

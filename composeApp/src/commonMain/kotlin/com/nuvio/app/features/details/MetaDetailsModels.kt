@@ -100,7 +100,29 @@ data class MetaVideo(
     val runtime: Int? = null,
     val rating: Double? = null,
     val streams: List<StreamItem> = emptyList(),
+    val trackingIdentity: VideoTrackingIdentity? = null,
 )
+
+/**
+ * Optional real-world identity for a video whose addon uses synthetic IDs and
+ * numbering (for example a chronological list spanning several shows). When
+ * present it is used for tracking scrobbles and skip-segment lookups instead of
+ * the parent meta and the synthetic season/episode.
+ */
+data class VideoTrackingIdentity(
+    val type: String,
+    val id: String,
+    val name: String? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+) {
+    val isMovie: Boolean
+        get() = type.equals("movie", ignoreCase = true)
+
+    /** Stremio-style video ID for the real item, e.g. `tt0092455:3:15`. */
+    val videoId: String
+        get() = if (isMovie || season == null || episode == null) id else "$id:$season:$episode"
+}
 
 data class MetaDetailsUiState(
     val isLoading: Boolean = false,
