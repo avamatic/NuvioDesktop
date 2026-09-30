@@ -49,7 +49,7 @@ actual object AppUpdaterPlatform {
     // A Flatpak cannot install anything for itself: the sandbox has no write
     // access to /app and the manifest grants no talk-name for the host Flatpak
     // service, so the update belongs to the user's store, not to this dialog.
-    // Chronio fork: upstream releases would install the official app, not this fork.
+    // Chronio: upstream releases would install the official Nuvio app, not Chronio.
     actual val isSupported: Boolean
         get() = false
 
